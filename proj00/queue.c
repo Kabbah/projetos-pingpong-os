@@ -10,8 +10,21 @@
 #include "queue.h"
 
 void queue_append(queue_t** queue, queue_t* elem) {
+	// Se a fila não existe, aborta.
+	if (queue == NULL) {
+		printf("Erro queue_append: A fila nao existe.\n");
+		return;
+	}
+
+	// Se o elemento não existe, aborta.
+	if (elem == NULL) {
+		printf("Erro queue_append: O elemento nao existe.\n");
+		return;
+	}
+
 	// Se o elemento já está em uma fila, aborta.
 	if (elem->next != NULL || elem->prev != NULL) {
+		printf("Erro queue_append: O elemento ja esta em uma fila.\n");
 		return;
 	}
 
@@ -35,6 +48,18 @@ void queue_append(queue_t** queue, queue_t* elem) {
 }
 
 queue_t* queue_remove(queue_t** queue, queue_t* elem) {
+	// Se a fila não existe, aborta.
+	if (queue == NULL) {
+		printf("Erro queue_remove: A fila nao existe.\n");
+		return NULL;
+	}
+
+	// Se o elemento não existe, aborta.
+	if (elem == NULL) {
+		printf("Erro queue_remove: O elemento nao existe.\n");
+		return NULL;
+	}
+
 	queue_t* iterator = (*queue);
 
 	queue_t* nextElem;
@@ -42,6 +67,7 @@ queue_t* queue_remove(queue_t** queue, queue_t* elem) {
 
 	// Se a fila é vazia, retorna NULL.
 	if (*queue == NULL) {
+		printf("Erro queue_remove: A fila esta vazia.\n");
 		return NULL;
 	}
 
@@ -51,7 +77,8 @@ queue_t* queue_remove(queue_t** queue, queue_t* elem) {
 
 		// Caso tenha chegado ao início da fila novamente, não remove o elemento.
 		if (iterator == (*queue)) {
-			return elem;
+			printf("Erro queue_remove: O elemento nao pertence a fila indicada.\n");
+			return NULL;
 		}
 	}
 
@@ -101,6 +128,7 @@ int queue_size(queue_t* queue) {
 void queue_print(char* name, queue_t* queue, void print_elem(void*)) {
 	queue_t* iterator = queue;
 
+	printf(name);
 	printf("[");
 
 	// Se a fila é nula, então aborta.
