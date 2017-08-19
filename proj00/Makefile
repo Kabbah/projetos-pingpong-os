@@ -1,7 +1,7 @@
 TARGET = testafila
 LIBS = 
 CC = gcc
-CFLAGS = -Wall -ansi
+CFLAGS = -Wall
 
 .PHONY: default all clean
 
