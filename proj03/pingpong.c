@@ -23,6 +23,12 @@ task_t* suspendedQueue;
 /* ID da próxima task a ser criada */
 long nextid;
 
+/* Função a ser executada pela task do dispatcher*/
+void bodyDispatcher(void* arg);
+
+/* Função que retorna a próxima task a ser executada. */
+task_t* scheduler();
+
 void pingpong_init() {
 	/* Desativa o buffer de saída padrão */
 	setvbuf(stdout, 0, _IONBF, 0);
@@ -145,7 +151,6 @@ void task_yield() {
 	task_switch(&taskDisp);
 }
 
-/* Função a ser executada pela task do dispatcher*/
 void bodyDispatcher(void* arg) {
 	while (queue_size((queue_t*) readyQueue)) {
 		task_t* next = scheduler();
@@ -157,7 +162,6 @@ void bodyDispatcher(void* arg) {
 	task_exit(0);
 }
 
-/* Função que retorna a próxima task a ser executada. */
 task_t* scheduler() {
 	return queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
 }
