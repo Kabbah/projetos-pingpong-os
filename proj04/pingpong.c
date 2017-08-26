@@ -245,8 +245,16 @@ task_t* scheduler() {
 		return NULL;
 	}
 
+	#ifdef DEBUG
+	printf("scheduler: buscando task com menor dynPrio.\n");
+	#endif
+
 	/* Busca a tarefa com menor dynPrio para executar. */
 	do {
+		#ifdef DEBUG
+		printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
+		#endif
+
 		if (iterator->dynPrio < minDynPrio) {
 			nextTask = iterator;
 			minDynPrio = iterator->dynPrio;
@@ -254,6 +262,10 @@ task_t* scheduler() {
 
 		iterator = iterator->next;
 	} while (iterator != readyQueue);
+
+	#ifdef DEBUG
+	printf("scheduler: escolhida task %d, prio %d, dynPrio %d.\n", nextTask->tid, nextTask->prio, nextTask->dynPrio);
+	#endif
 
 	/* Retira a tarefa da fila e reseta sua prioridade dinamica. */
 	queue_remove((queue_t**)&readyQueue, (queue_t*)nextTask);
@@ -265,6 +277,9 @@ task_t* scheduler() {
 		do {
 			iterator->dynPrio -= ALPHA_PRIO;
 			iterator = iterator->next;
+			#ifdef DEBUG
+			printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
+			#endif
 		} while (iterator != readyQueue);
 	}
 
