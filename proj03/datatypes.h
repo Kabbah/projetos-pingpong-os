@@ -13,10 +13,13 @@
 typedef struct task_t {
 	struct task_t* prev;
 	struct task_t* next;
+	struct task_t** queue;
 	
 	struct task_t* main;
 	
 	ucontext_t context;
+
+	char estado;
 	
 	int tid;
 } task_t ;

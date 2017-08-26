@@ -14,6 +14,9 @@ task_t* taskExec;
 /* Task do dispatcher */
 task_t taskDisp;
 
+/* Ponteiro para uma task que deve ser liberada */
+task_t* freeTask;
+
 /* Fila de tasks prontas */
 task_t* readyQueue;
 
@@ -37,9 +40,13 @@ void pingpong_init() {
 	/* A task main não está na fila...? */
 	taskMain.next = NULL;
 	taskMain.prev = NULL;
+	taskMain.queue = NULL;
 	
 	/* Referência a si mesmo? */
 	taskMain.main = &taskMain;
+
+	/* A task main esta pronta. */
+	taskMain.estado = 'r';
 
 	/* A task main tem id 0. */
 	taskMain.tid = 0;
@@ -49,6 +56,9 @@ void pingpong_init() {
 
 	/* A primeira task em execução é a main. */
 	taskExec = &taskMain;
+
+	/* Nao ha nenhuma task para ser liberada. */
+	freeTask = NULL;
 
 	/* O contexto não precisa ser salvo agora, porque a primeira troca de contexto fará isso. */
 
@@ -98,6 +108,8 @@ int task_create(task_t* task, void (*start_func)(void*), void* arg) {
 
 	/* Informações da fila. */
 	queue_append((queue_t**) &readyQueue, (queue_t*) task);
+	task->queue = readyQueue;
+	task->estado = 'r';
 
 	return (task->tid);
 }
@@ -106,8 +118,7 @@ void task_exit(int exitCode) {
 	#ifdef DEBUG
 	printf("task_exit: encerrando task %d.\n", taskExec->tid);
 	#endif
-
-	/* TODO: free na pilha */
+	freeTask = taskExec;
 	
 	if (taskExec == &taskDisp) {
 		task_switch(&taskMain);
@@ -140,11 +151,32 @@ int task_id() {
 }
 
 void task_suspend(task_t *task, task_t **queue) {
+	/* Se task for nulo, considera a tarefa corrente. */
+	if (task == NULL) {
+		task = taskExec;
+	}
 
+	/* Se queue for nulo, não retira a tarefa. */
+	if (queue != NULL) {
+		#ifdef DEBUG
+		printf("task_suspend: queue é NULL, a tarefa %d não foi suspensa.\n", task->tid);
+		#endif
+		return;
+	}
+
+	queue_remove((queue_t**)(task->queue), (queue_t*)task);
+	queue_append((queue_t**)queue, (queue_t*)task);
+	task->queue = queue;
+	task->estado = 's';
 }
 
 void task_resume(task_t *task) {
+	if (task->queue != NULL) {
+		queue_remove((queue_t**)(task->queue), (queue_t*)task);
+	}
 
+	queue_append((queue_t**)readyQueue, (queue_t*)task);
+	task->estado = 'r';
 }
 
 void task_yield() {
@@ -157,11 +189,23 @@ void bodyDispatcher(void* arg) {
 
 		if (next != 0) {
 			task_switch(next);
+
+			/* Libera a memoria da task, caso ela tenha dado exit. */
+			if (freeTask != NULL) {
+				free(freeTask->context.uc_stack.ss_sp);
+				queue_remove((queue_t**)(freeTask->queue), (queue_t*)freeTask);
+				/* free freeTask? */
+				freeTask = NULL;
+			}
+			else {
+				/* Recoloca a task no final da fila de prontas. */
+				queue_append((queue_t**)&readyQueue, (queue_t*)next);
+			}
 		}
 	}
 	task_exit(0);
 }
 
 task_t* scheduler() {
-	return queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
+	task_t* next_task = (task_t*) queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
 }
