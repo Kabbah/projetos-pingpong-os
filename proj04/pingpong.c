@@ -200,6 +200,7 @@ void task_setprio(task_t* task, int prio) {
 	}
 	if (prio <= MAX_PRIO && prio >= MIN_PRIO) {
 		task->prio = prio;
+		task->dynPrio = prio;
 	}
 }
 
