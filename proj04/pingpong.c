@@ -277,10 +277,10 @@ task_t* scheduler() {
 	if (iterator != NULL) {
 		do {
 			iterator->dynPrio -= ALPHA_PRIO;
-			iterator = iterator->next;
 			#ifdef DEBUG
 			printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
 			#endif
+			iterator = iterator->next;
 		} while (iterator != readyQueue);
 	}
 
