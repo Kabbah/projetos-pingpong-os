@@ -164,7 +164,7 @@ void task_suspend(task_t *task, task_t **queue) {
 		return;
 	}
 
-	queue_remove((queue_t**)(task->queue), (queue_t*)task);
+	queue_remove((queue_t**)readyQueue, (queue_t*)task); /* Conferir. */
 	queue_append((queue_t**)queue, (queue_t*)task);
 	task->queue = queue;
 	task->estado = 's';
@@ -193,7 +193,6 @@ void bodyDispatcher(void* arg) {
 			/* Libera a memoria da task, caso ela tenha dado exit. */
 			if (freeTask != NULL) {
 				free(freeTask->context.uc_stack.ss_sp);
-				queue_remove((queue_t**)(freeTask->queue), (queue_t*)freeTask);
 				/* free freeTask? */
 				freeTask = NULL;
 			}
