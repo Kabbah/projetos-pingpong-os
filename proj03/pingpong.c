@@ -164,6 +164,7 @@ void task_suspend(task_t *task, task_t **queue) {
 		return;
 	}
 
+	/* Remove a task de sua fila atual e coloca-a na fila fornecida. */
 	queue_remove((queue_t**)(task->queue), (queue_t*)task);
 	queue_append((queue_t**)queue, (queue_t*)task);
 	task->queue = queue;
@@ -171,6 +172,7 @@ void task_suspend(task_t *task, task_t **queue) {
 }
 
 void task_resume(task_t *task) {
+	/* Remove a task de sua fila atual e coloca-a na fila de tasks prontas. */
 	if (task->queue != NULL) {
 		queue_remove((queue_t**)(task->queue), (queue_t*)task);
 	}
@@ -181,6 +183,7 @@ void task_resume(task_t *task) {
 }
 
 void task_yield() {
+	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
 }
 
@@ -198,7 +201,7 @@ void bodyDispatcher(void* arg) {
 				freeTask = NULL;
 			}
 			else {
-				/* Recoloca a task no final da fila de prontas. */
+				/* Recoloca a task no final da fila de prontas, caso ela tenha dado yield. */
 				queue_append((queue_t**)&readyQueue, (queue_t*)next);
 			}
 		}
