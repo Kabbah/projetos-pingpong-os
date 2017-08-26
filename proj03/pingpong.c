@@ -197,7 +197,6 @@ void bodyDispatcher(void* arg) {
 			/* Libera a memoria da task, caso ela tenha dado exit. */
 			if (freeTask != NULL) {
 				free(freeTask->context.uc_stack.ss_sp);
-				/* free freeTask? */
 				freeTask = NULL;
 			}
 			else {
