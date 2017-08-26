@@ -221,12 +221,12 @@ void bodyDispatcher(void* arg) {
 			/* Libera a memoria da task, caso ela tenha dado exit. */
 			if (freeTask != NULL) {
 				free(freeTask->context.uc_stack.ss_sp);
-				/* queue_remove((queue_t**)&readyQueue, (queue_t*)freeTask);*/ /* Caso nao seja para retirar a tarefa da fila quando ela eh escolhida, descomentar essa linha (tambem lembrar de editar o scheduler). */
+				queue_remove((queue_t**)&readyQueue, (queue_t*)freeTask); /* Caso seja para retirar a tarefa da fila quando ela eh escolhida, comentar essa linha (tambem lembrar de editar o scheduler). */
 				freeTask = NULL;
 			}
 			else {
 				/* Recoloca a task no final da fila de prontas, caso ela tenha dado yield. */
-				queue_append((queue_t**)&readyQueue, (queue_t*)next); /* Caso nao seja para retirar a tarefa da fila quando ela eh escolhida, comentar essa linha (tambem lembrar de editar o scheduler). */
+				/*queue_append((queue_t**)&readyQueue, (queue_t*)next);*/ /* Caso seja para retirar a tarefa da fila quando ela eh escolhida, descomentar essa linha (tambem lembrar de editar o scheduler). */
 			}
 		}
 	}
@@ -270,8 +270,9 @@ task_t* scheduler() {
 	#endif
 
 	/* Retira a tarefa da fila e reseta sua prioridade dinamica. */
-	queue_remove((queue_t**)&readyQueue, (queue_t*)nextTask); /* Caso nao seja para retirar a tarefa da fila, comentar essa linha (tambem lembrar de editar o bodyDispatcher). */
+	/*queue_remove((queue_t**)&readyQueue, (queue_t*)nextTask);*/ /* Caso seja para retirar a tarefa da fila, descomentar essa linha (tambem lembrar de editar o bodyDispatcher). */
 	nextTask->dynPrio = nextTask->prio;
+	nextTask->dynPrio++; /* Caso seja para retirar a tarefa da fila, comentar essa linha (tambem lembrar de editar o bodyDispatcher). */
 
 	/* Atualiza a dynprio das outras tarefas. */
 	iterator = readyQueue;
