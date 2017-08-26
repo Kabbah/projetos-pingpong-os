@@ -108,7 +108,7 @@ int task_create(task_t* task, void (*start_func)(void*), void* arg) {
 
 	/* Informações da fila. */
 	queue_append((queue_t**) &readyQueue, (queue_t*) task);
-	task->queue = readyQueue;
+	task->queue = &readyQueue;
 	task->estado = 'r';
 
 	return (task->tid);
@@ -164,7 +164,7 @@ void task_suspend(task_t *task, task_t **queue) {
 		return;
 	}
 
-	queue_remove((queue_t**)readyQueue, (queue_t*)task); /* Conferir. */
+	queue_remove((queue_t**)(task->queue), (queue_t*)task);
 	queue_append((queue_t**)queue, (queue_t*)task);
 	task->queue = queue;
 	task->estado = 's';
@@ -176,6 +176,7 @@ void task_resume(task_t *task) {
 	}
 
 	queue_append((queue_t**)readyQueue, (queue_t*)task);
+	task->queue = &readyQueue;
 	task->estado = 'r';
 }
 
@@ -206,5 +207,5 @@ void bodyDispatcher(void* arg) {
 }
 
 task_t* scheduler() {
-	task_t* next_task = (task_t*) queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
+	return (task_t*) queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
 }
