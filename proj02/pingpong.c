@@ -64,7 +64,7 @@ int task_create(task_t* task, void (*start_func)(void*), void* arg) {
 	task->context.uc_link = NULL;
 
 	/* Cria o contexto com a função. */
-	makecontext(&(task->context), start_func, 1, arg);
+	makecontext(&(task->context), (void(*)(void))start_func, 1, arg);
 
 	/* Seta o id da task. */
 	task->tid = nextid;

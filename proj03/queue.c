@@ -142,7 +142,7 @@ int queue_size(queue_t* queue) {
 void queue_print(char* name, queue_t* queue, void print_elem(void*)) {
 	queue_t* iterator = queue;
 
-	printf(name);
+	printf("%s", name);
 	printf("[");
 
 	// Se a fila é nula, então aborta.

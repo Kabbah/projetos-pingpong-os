@@ -4,7 +4,7 @@ TARGET2 = pingpong-tasks2
 TARGET3 = pingpong-tasks3
 LIBS = 
 CC = gcc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall
 
 .PHONY: default all clean
 
