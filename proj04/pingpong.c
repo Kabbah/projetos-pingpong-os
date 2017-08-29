@@ -272,7 +272,7 @@ task_t* scheduler() {
 	/* Retira a tarefa da fila e reseta sua prioridade dinamica. */
 	/*queue_remove((queue_t**)&readyQueue, (queue_t*)nextTask);*/ /* Caso seja para retirar a tarefa da fila, descomentar essa linha (tambem lembrar de editar o bodyDispatcher). */
 	nextTask->dynPrio = nextTask->prio;
-	nextTask->dynPrio++; /* Caso seja para retirar a tarefa da fila, comentar essa linha (tambem lembrar de editar o bodyDispatcher). */
+	nextTask->dynPrio += ALPHA_PRIO; /* Caso seja para retirar a tarefa da fila, comentar essa linha (tambem lembrar de editar o bodyDispatcher). */
 
 	/* Atualiza a dynprio das outras tarefas. */
 	iterator = readyQueue;
