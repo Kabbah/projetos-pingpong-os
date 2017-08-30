@@ -119,6 +119,7 @@ void task_exit(int exitCode) {
 	printf("task_exit: encerrando task %d.\n", taskExec->tid);
 	#endif
 	freeTask = taskExec;
+	freeTask->estado = 'x';
 	
 	if (taskExec == &taskDisp) {
 		task_switch(&taskMain);
@@ -132,7 +133,6 @@ int task_switch(task_t *task) {
 	task_t* prevTask;
 
 	prevTask = taskExec;
-	taskExec = task;
 	
 	#ifdef DEBUG
 	printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
@@ -142,6 +142,8 @@ int task_switch(task_t *task) {
 		perror("Erro na troca de contexto: ");
 		return -1;
 	}
+
+	taskExec = task;
 
 	return 0;
 }
@@ -156,18 +158,13 @@ void task_suspend(task_t *task, task_t **queue) {
 		task = taskExec;
 	}
 
-	/* Se queue for nulo, não retira a tarefa. */
+	/* Se queue for nulo, não retira a tarefa da fila atual. */
 	if (queue != NULL) {
-		#ifdef DEBUG
-		printf("task_suspend: queue é NULL, a tarefa %d não foi suspensa.\n", task->tid);
-		#endif
-		return;
+		queue_remove((queue_t**)(task->queue), (queue_t*)task);
+		queue_append((queue_t**)queue, (queue_t*)task);
+		task->queue = queue;
 	}
 
-	/* Remove a task de sua fila atual e coloca-a na fila fornecida. */
-	queue_remove((queue_t**)(task->queue), (queue_t*)task);
-	queue_append((queue_t**)queue, (queue_t*)task);
-	task->queue = queue;
 	task->estado = 's';
 }
 
@@ -177,12 +174,17 @@ void task_resume(task_t *task) {
 		queue_remove((queue_t**)(task->queue), (queue_t*)task);
 	}
 
-	queue_append((queue_t**)readyQueue, (queue_t*)task);
+	queue_append((queue_t**)&readyQueue, (queue_t*)task);
 	task->queue = &readyQueue;
 	task->estado = 'r';
 }
 
 void task_yield() {
+	/* Recoloca a task no final da fila de prontas. */
+	queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
+	taskExec->queue = &readyQueue;
+	taskExec->estado = 'r';
+
 	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
 }
@@ -192,6 +194,10 @@ void bodyDispatcher(void* arg) {
 		task_t* next = scheduler();
 
 		if (next != 0) {
+			/* Coloca a tarefa em execução */
+			queue_remove((queue_t**)&readyQueue, (queue_t*)next);
+			next->queue = NULL;
+			next->estado = 'e';
 			task_switch(next);
 
 			/* Libera a memoria da task, caso ela tenha dado exit. */
@@ -199,15 +205,11 @@ void bodyDispatcher(void* arg) {
 				free(freeTask->context.uc_stack.ss_sp);
 				freeTask = NULL;
 			}
-			else {
-				/* Recoloca a task no final da fila de prontas, caso ela tenha dado yield. */
-				queue_append((queue_t**)&readyQueue, (queue_t*)next);
-			}
 		}
 	}
 	task_exit(0);
 }
 
 task_t* scheduler() {
-	return (task_t*) queue_remove((queue_t**) &readyQueue, (queue_t*) readyQueue);
+	return readyQueue;
 }
