@@ -89,6 +89,7 @@ int task_switch(task_t *task) {
 	task_t* prevTask;
 
 	prevTask = taskExec;
+	taskExec = task;
 	
 	#ifdef DEBUG
 	printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
@@ -96,10 +97,9 @@ int task_switch(task_t *task) {
 	
 	if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
 		perror("Erro na troca de contexto: ");
+		taskExec = prevTask;
 		return -1;
 	}
-
-	taskExec = task;
 
 	return 0;
 }

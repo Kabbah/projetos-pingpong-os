@@ -140,6 +140,7 @@ int task_switch(task_t *task) {
 	task_t* prevTask;
 
 	prevTask = taskExec;
+	taskExec = task;
 	
 	#ifdef DEBUG
 	printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
@@ -147,10 +148,9 @@ int task_switch(task_t *task) {
 	
 	if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
 		perror("Erro na troca de contexto: ");
+		taskExec = prevTask;
 		return -1;
 	}
-
-	taskExec = task;
 
 	return 0;
 }
@@ -188,9 +188,9 @@ void task_resume(task_t *task) {
 
 void task_yield() {
 	/* Recoloca a task no final da fila de prontas. */
-	queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
-	taskExec->queue = &readyQueue;
-	taskExec->estado = 'r';
+	//queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
+	//taskExec->queue = &readyQueue;
+	//taskExec->estado = 'r';
 
 	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
@@ -228,6 +228,11 @@ void bodyDispatcher(void* arg) {
 			if (freeTask != NULL) {
 				free(freeTask->context.uc_stack.ss_sp);
 				freeTask = NULL;
+			}
+			else {
+				queue_append((queue_t**)&readyQueue, (queue_t*)next);
+				next->queue = &readyQueue;
+				next->estado = 'r';
 			}
 		}
 	}
