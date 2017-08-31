@@ -187,10 +187,12 @@ void task_resume(task_t *task) {
 }
 
 void task_yield() {
-	/* Recoloca a task no final da fila de prontas. */
-	//queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
-	//taskExec->queue = &readyQueue;
-	//taskExec->estado = 'r';
+	/* Recoloca a task no final da fila de prontas, exceto se for main */
+	if(taskExec->tid != 0) {
+		queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
+		taskExec->queue = &readyQueue;
+		taskExec->estado = 'r';
+	}
 
 	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
@@ -228,11 +230,6 @@ void bodyDispatcher(void* arg) {
 			if (freeTask != NULL) {
 				free(freeTask->context.uc_stack.ss_sp);
 				freeTask = NULL;
-			}
-			else {
-				queue_append((queue_t**)&readyQueue, (queue_t*)next);
-				next->queue = &readyQueue;
-				next->estado = 'r';
 			}
 		}
 	}
