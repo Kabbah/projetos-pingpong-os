@@ -219,7 +219,7 @@ void bodyDispatcher(void* arg) {
 	while (queue_size((queue_t*) readyQueue)) {
 		task_t* next = scheduler();
 
-		if (next != 0) {
+		if (next != NULL) {
 			/* Coloca a tarefa em execução */
 			queue_remove((queue_t**)&readyQueue, (queue_t*)next);
 			next->queue = NULL;
@@ -290,7 +290,7 @@ task_t* scheduler() {
 	iterator = readyQueue;
 	if (iterator != NULL) {
 		do {
-			iterator->dynPrio -= ALPHA_PRIO;
+            if (iterator->dynPrio > -20) iterator->dynPrio -= ALPHA_PRIO;
 			#ifdef DEBUG
 			printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
 			#endif
