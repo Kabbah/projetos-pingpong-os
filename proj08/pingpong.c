@@ -183,6 +183,11 @@ void task_exit(int exitCode) {
 	freeTask->estado = 'x';
 	freeTask->exitCode = exitCode;
 
+	/* Acorda todas as tarefas na fila de join. */
+	while (freeTask->joinQueue != NULL) {
+		queue_append((queue_t**)&readyQueue, queue_remove((queue_t**)&(freeTask->joinQueue), (queue_t*)(freeTask->joinQueue));
+	}
+
 	freeTask->execTime = systime() - freeTask->creationTime;
 	printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", freeTask->tid, freeTask->execTime, freeTask->procTime, freeTask->activations);
 	
@@ -287,6 +292,7 @@ int task_join(task_t* task) {
 	/* Se a tarefa existir e não tiver terminado */
 	task_suspend(NULL, &(task->joinQueue));
 	task_yield();
+	return task->exitCode;
 }
 
 void bodyDispatcher(void* arg) {
