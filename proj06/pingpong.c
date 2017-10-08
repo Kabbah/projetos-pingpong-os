@@ -170,7 +170,7 @@ void task_exit(int exitCode) {
 	freeTask->estado = 'x';
 
 	freeTask->execTime = systime() - freeTask->creationTime;
-	printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations", freeTask->tid, freeTask->execTime * TICK_MICROSECONDS / 1000, freeTask->procTime * TICK_MICROSECONDS / 1000, freeTask->activations);
+	printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", freeTask->tid, freeTask->execTime, freeTask->procTime, freeTask->activations);
 	
 	if (taskExec == &taskDisp) {
 		task_switch(&taskMain);
@@ -368,5 +368,5 @@ void tickHandler() {
 }
 
 unsigned int systime() {
-	return systemTime;
+	return systemTime * TICK_MICROSECONDS / 1000;
 }
