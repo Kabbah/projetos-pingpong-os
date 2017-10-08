@@ -66,14 +66,14 @@ void pingpong_init() {
 	taskMain.tid = 0;
 
 	/* Informações de tempo */
-	task->creationTime = systime();
-	task->lastExecutionTime = 0;
-	task->execTime = 0;
-	task->procTime = 0;
-	task->activations = 0;
+	taskMain.creationTime = systime();
+	taskMain.lastExecutionTime = 0;
+	taskMain.execTime = 0;
+	taskMain.procTime = 0;
+	taskMain.activations = 0;
 
 	/* Coloca a tarefa na fila */
-	queue_append((queue_t**)&readyQueue, (queue_t*)taskMain);
+	queue_append((queue_t**)&readyQueue, (queue_t*)&taskMain);
 	taskMain.queue = &readyQueue;
 
 	/* O id da próxima task a ser criada é 1. */
