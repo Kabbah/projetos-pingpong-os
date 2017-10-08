@@ -185,7 +185,7 @@ void task_exit(int exitCode) {
 
 	/* Acorda todas as tarefas na fila de join. */
 	while (freeTask->joinQueue != NULL) {
-		queue_append((queue_t**)&readyQueue, queue_remove((queue_t**)&(freeTask->joinQueue), (queue_t*)(freeTask->joinQueue));
+		queue_append((queue_t**)&readyQueue, queue_remove((queue_t**)&(freeTask->joinQueue), (queue_t*)(freeTask->joinQueue)));
 	}
 
 	freeTask->execTime = systime() - freeTask->creationTime;
