@@ -222,9 +222,6 @@ void task_yield() {
 		taskExec->queue = &readyQueue;
 		taskExec->estado = 'r';
 	}
-    
-    /* Reseta as ticks */
-    remainingTicks = RESET_TICKS;
 
 	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
@@ -253,6 +250,8 @@ void bodyDispatcher(void* arg) {
 
 		if (next != 0) {
 			/* Coloca a tarefa em execução */
+			/* Reseta as ticks */
+			remainingTicks = RESET_TICKS;
 			queue_remove((queue_t**)&readyQueue, (queue_t*)next);
 			next->queue = NULL;
 			next->estado = 'e';
