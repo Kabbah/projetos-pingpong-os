@@ -235,10 +235,15 @@ void task_suspend(task_t *task, task_t **queue) {
 
 	/* Se queue for nulo, não retira a tarefa da fila atual. */
 	if (queue != NULL) {
-		queue_remove((queue_t**)(task->queue), (queue_t*)task);
+        if(task->queue != NULL) {
+    		queue_remove((queue_t**)(task->queue), (queue_t*)task);
+        }
 		queue_append((queue_t**)queue, (queue_t*)task);
 		task->queue = queue;
 	}
+    #ifdef DEBUG
+    printf("task_suspend: tarefa %d suspensa.\n", task->tid);
+    #endif
 
 	task->estado = 's';
 }
@@ -255,10 +260,12 @@ void task_resume(task_t *task) {
 }
 
 void task_yield() {
-	/* Recoloca a task no final da fila de prontas */
-	queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
-	taskExec->queue = &readyQueue;
-	taskExec->estado = 'r';
+    if(taskExec->estado != 's') {
+	    /* Recoloca a task no final da fila de prontas */
+	    queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
+	    taskExec->queue = &readyQueue;
+	    taskExec->estado = 'r';
+    }
 
 	/* Volta o controle para o dispatcher. */
 	task_switch(&taskDisp);
@@ -283,9 +290,15 @@ int task_getprio(task_t* task) {
 
 int task_join(task_t* task) {
 	if (task == NULL) {
+        #ifdef DEBUG
+        printf("task_join: erro: tarefa nula.\n");
+        #endif
 		return -1;
 	}
 	if (task->estado == 'x') {
+        #ifdef DEBUG
+        printf("task_join: erro: a tarefa já foi encerrada.\n");
+        #endif
 		return task->exitCode;
 	}
 
