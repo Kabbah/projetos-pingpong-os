@@ -188,6 +188,7 @@ void task_exit(int exitCode) {
         queue_append((queue_t**)&readyQueue, queue_remove((queue_t**)&(freeTask->joinQueue), (queue_t*)(freeTask->joinQueue)));
     }
 
+    freeTask->procTime += systime() - freeTask->lastExecutionTime;
     freeTask->execTime = systime() - freeTask->creationTime;
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", freeTask->tid, freeTask->execTime, freeTask->procTime, freeTask->activations);
 
