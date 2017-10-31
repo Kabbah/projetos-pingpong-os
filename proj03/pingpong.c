@@ -33,185 +33,185 @@ void bodyDispatcher(void* arg);
 task_t* scheduler();
 
 void pingpong_init() {
-	/* Desativa o buffer de saída padrão */
-	setvbuf(stdout, 0, _IONBF, 0);
+    /* Desativa o buffer de saída padrão */
+    setvbuf(stdout, 0, _IONBF, 0);
 
-	/* INICIA A TASK MAIN */
-	/* A task main não está na fila...? */
-	taskMain.next = NULL;
-	taskMain.prev = NULL;
-	taskMain.queue = NULL;
-	
-	/* Referência a si mesmo? */
-	taskMain.main = &taskMain;
+    /* INICIA A TASK MAIN */
+    /* A task main não está na fila...? */
+    taskMain.next = NULL;
+    taskMain.prev = NULL;
+    taskMain.queue = NULL;
 
-	/* A task main esta pronta. */
-	taskMain.estado = 'r';
+    /* Referência a si mesmo? */
+    taskMain.main = &taskMain;
 
-	/* A task main tem id 0. */
-	taskMain.tid = 0;
+    /* A task main esta pronta. */
+    taskMain.estado = 'r';
 
-	/* O id da próxima task a ser criada é 1. */
-	nextid = 1;
+    /* A task main tem id 0. */
+    taskMain.tid = 0;
 
-	/* A primeira task em execução é a main. */
-	taskExec = &taskMain;
+    /* O id da próxima task a ser criada é 1. */
+    nextid = 1;
 
-	/* Nao ha nenhuma task para ser liberada. */
-	freeTask = NULL;
+    /* A primeira task em execução é a main. */
+    taskExec = &taskMain;
 
-	/* O contexto não precisa ser salvo agora, porque a primeira troca de contexto fará isso. */
+    /* Nao ha nenhuma task para ser liberada. */
+    freeTask = NULL;
 
-	/* INICIA A TASK SCHEDULER */
-	task_create(&taskDisp, &bodyDispatcher, NULL);
-	queue_remove((queue_t**) &readyQueue, (queue_t*) &taskDisp);
-	
-	#ifdef DEBUG
-	printf("PingPongOS iniciado.\n");
-	#endif
+    /* O contexto não precisa ser salvo agora, porque a primeira troca de contexto fará isso. */
+
+    /* INICIA A TASK SCHEDULER */
+    task_create(&taskDisp, &bodyDispatcher, NULL);
+    queue_remove((queue_t**)&readyQueue, (queue_t*)&taskDisp);
+
+#ifdef DEBUG
+    printf("PingPongOS iniciado.\n");
+#endif
 }
 
-int task_create(task_t* task, void (*start_func)(void*), void* arg) {
-	char* stack;
+int task_create(task_t* task, void(*start_func)(void*), void* arg) {
+    char* stack;
 
-	/* Coloca referência para task main. */
-	task->main = &taskMain;
+    /* Coloca referência para task main. */
+    task->main = &taskMain;
 
-	/* Inicializa o contexto. */
-	getcontext(&(task->context));
+    /* Inicializa o contexto. */
+    getcontext(&(task->context));
 
-	/* Aloca a pilha. */
-	stack = malloc(STACKSIZE);
-	if (stack == NULL) {
-		perror("Erro na criação da pilha: ");
-		return -1;
-	}
+    /* Aloca a pilha. */
+    stack = malloc(STACKSIZE);
+    if (stack == NULL) {
+        perror("Erro na criação da pilha: ");
+        return -1;
+    }
 
-	/* Seta a pilha do contexto. */
-	task->context.uc_stack.ss_sp = stack;
-	task->context.uc_stack.ss_size = STACKSIZE;
-	task->context.uc_stack.ss_flags = 0;
+    /* Seta a pilha do contexto. */
+    task->context.uc_stack.ss_sp = stack;
+    task->context.uc_stack.ss_size = STACKSIZE;
+    task->context.uc_stack.ss_flags = 0;
 
-	/* Não liga o contexto a outro. */
-	task->context.uc_link = NULL;
+    /* Não liga o contexto a outro. */
+    task->context.uc_link = NULL;
 
-	/* Cria o contexto com a função. */
-	makecontext(&(task->context), (void(*)(void))start_func, 1, arg);
+    /* Cria o contexto com a função. */
+    makecontext(&(task->context), (void(*)(void))start_func, 1, arg);
 
-	/* Seta o id da task. */
-	task->tid = nextid;
-	nextid++;
-	
-	#ifdef DEBUG
-	printf("task_create: task %d criada.\n", task->tid);
-	#endif
+    /* Seta o id da task. */
+    task->tid = nextid;
+    nextid++;
 
-	/* Informações da fila. */
-	queue_append((queue_t**) &readyQueue, (queue_t*) task);
-	task->queue = &readyQueue;
-	task->estado = 'r';
+#ifdef DEBUG
+    printf("task_create: task %d criada.\n", task->tid);
+#endif
 
-	return (task->tid);
+    /* Informações da fila. */
+    queue_append((queue_t**)&readyQueue, (queue_t*)task);
+    task->queue = &readyQueue;
+    task->estado = 'r';
+
+    return (task->tid);
 }
 
 void task_exit(int exitCode) {
-	#ifdef DEBUG
-	printf("task_exit: encerrando task %d.\n", taskExec->tid);
-	#endif
-	freeTask = taskExec;
-	freeTask->estado = 'x';
-	
-	if (taskExec == &taskDisp) {
-		task_switch(&taskMain);
-	}
-	else {
-		task_switch(&taskDisp);
-	}
+#ifdef DEBUG
+    printf("task_exit: encerrando task %d.\n", taskExec->tid);
+#endif
+    freeTask = taskExec;
+    freeTask->estado = 'x';
+
+    if (taskExec == &taskDisp) {
+        task_switch(&taskMain);
+    }
+    else {
+        task_switch(&taskDisp);
+    }
 }
 
 int task_switch(task_t *task) {
-	task_t* prevTask;
+    task_t* prevTask;
 
-	prevTask = taskExec;
-	taskExec = task;
-	
-	#ifdef DEBUG
-	printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
-	#endif
-	
-	if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
-		perror("Erro na troca de contexto: ");
-		taskExec = prevTask;
-		return -1;
-	}
+    prevTask = taskExec;
+    taskExec = task;
 
-	return 0;
+#ifdef DEBUG
+    printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
+#endif
+
+    if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
+        perror("Erro na troca de contexto: ");
+        taskExec = prevTask;
+        return -1;
+    }
+
+    return 0;
 }
 
 int task_id() {
-	return (taskExec->tid);
+    return (taskExec->tid);
 }
 
 void task_suspend(task_t *task, task_t **queue) {
-	/* Se task for nulo, considera a tarefa corrente. */
-	if (task == NULL) {
-		task = taskExec;
-	}
+    /* Se task for nulo, considera a tarefa corrente. */
+    if (task == NULL) {
+        task = taskExec;
+    }
 
-	/* Se queue for nulo, não retira a tarefa da fila atual. */
-	if (queue != NULL) {
-		queue_remove((queue_t**)(task->queue), (queue_t*)task);
-		queue_append((queue_t**)queue, (queue_t*)task);
-		task->queue = queue;
-	}
+    /* Se queue for nulo, não retira a tarefa da fila atual. */
+    if (queue != NULL) {
+        queue_remove((queue_t**)(task->queue), (queue_t*)task);
+        queue_append((queue_t**)queue, (queue_t*)task);
+        task->queue = queue;
+    }
 
-	task->estado = 's';
+    task->estado = 's';
 }
 
 void task_resume(task_t *task) {
-	/* Remove a task de sua fila atual e coloca-a na fila de tasks prontas. */
-	if (task->queue != NULL) {
-		queue_remove((queue_t**)(task->queue), (queue_t*)task);
-	}
+    /* Remove a task de sua fila atual e coloca-a na fila de tasks prontas. */
+    if (task->queue != NULL) {
+        queue_remove((queue_t**)(task->queue), (queue_t*)task);
+    }
 
-	queue_append((queue_t**)&readyQueue, (queue_t*)task);
-	task->queue = &readyQueue;
-	task->estado = 'r';
+    queue_append((queue_t**)&readyQueue, (queue_t*)task);
+    task->queue = &readyQueue;
+    task->estado = 'r';
 }
 
 void task_yield() {
-	/* Recoloca a task no final da fila de prontas, exceto se for main. */
-	if(taskExec->tid != 0) {
-		queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
-		taskExec->queue = &readyQueue;
-		taskExec->estado = 'r';
-	}
+    /* Recoloca a task no final da fila de prontas, exceto se for main. */
+    if (taskExec->tid != 0) {
+        queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
+        taskExec->queue = &readyQueue;
+        taskExec->estado = 'r';
+    }
 
-	/* Volta o controle para o dispatcher. */
-	task_switch(&taskDisp);
+    /* Volta o controle para o dispatcher. */
+    task_switch(&taskDisp);
 }
 
 void bodyDispatcher(void* arg) {
-	while (queue_size((queue_t*) readyQueue)) {
-		task_t* next = scheduler();
+    while (queue_size((queue_t*)readyQueue)) {
+        task_t* next = scheduler();
 
-		if (next != 0) {
-			/* Coloca a tarefa em execução */
-			queue_remove((queue_t**)&readyQueue, (queue_t*)next);
-			next->queue = NULL;
-			next->estado = 'e';
-			task_switch(next);
+        if (next != 0) {
+            /* Coloca a tarefa em execução */
+            queue_remove((queue_t**)&readyQueue, (queue_t*)next);
+            next->queue = NULL;
+            next->estado = 'e';
+            task_switch(next);
 
-			/* Libera a memoria da task, caso ela tenha dado exit. */
-			if (freeTask != NULL) {
-				free(freeTask->context.uc_stack.ss_sp);
-				freeTask = NULL;
-			}
-		}
-	}
-	task_exit(0);
+            /* Libera a memoria da task, caso ela tenha dado exit. */
+            if (freeTask != NULL) {
+                free(freeTask->context.uc_stack.ss_sp);
+                freeTask = NULL;
+            }
+        }
+    }
+    task_exit(0);
 }
 
 task_t* scheduler() {
-	return readyQueue;
+    return readyQueue;
 }

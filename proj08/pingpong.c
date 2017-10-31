@@ -71,7 +71,7 @@ void pingpong_init() {
     taskMain.execTime = 0;
     taskMain.procTime = 0;
     taskMain.activations = 0;
-    
+
     taskMain.joinQueue = NULL;
 
     /* Coloca a tarefa na fila */
@@ -92,7 +92,7 @@ void pingpong_init() {
     action.sa_handler = tickHandler;
     sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
-    if(sigaction(SIGALRM, &action, 0) < 0) {
+    if (sigaction(SIGALRM, &action, 0) < 0) {
         perror("Erro em sigaction: ");
         exit(1);
     }
@@ -100,7 +100,7 @@ void pingpong_init() {
     timer.it_value.tv_sec = 0;
     timer.it_interval.tv_usec = TICK_MICROSECONDS;
     timer.it_interval.tv_sec = 0;
-    if(setitimer(ITIMER_REAL, &timer, 0) < 0) {
+    if (setitimer(ITIMER_REAL, &timer, 0) < 0) {
         perror("Erro em setitimer: ");
         exit(1);
     }
@@ -111,17 +111,17 @@ void pingpong_init() {
 
     /* INICIA A TASK SCHEDULER */
     task_create(&taskDisp, &bodyDispatcher, NULL);
-    queue_remove((queue_t**) &readyQueue, (queue_t*) &taskDisp);
-    
-    #ifdef DEBUG
+    queue_remove((queue_t**)&readyQueue, (queue_t*)&taskDisp);
+
+#ifdef DEBUG
     printf("PingPongOS iniciado.\n");
-    #endif
+#endif
 
     /* Ativa o dispatcher */
     task_yield();
 }
 
-int task_create(task_t* task, void (*start_func)(void*), void* arg) {
+int task_create(task_t* task, void(*start_func)(void*), void* arg) {
     char* stack;
 
     /* Coloca referência para task main. */
@@ -151,13 +151,13 @@ int task_create(task_t* task, void (*start_func)(void*), void* arg) {
     /* Seta o id da task. */
     task->tid = nextid;
     nextid++;
-    
-    #ifdef DEBUG
+
+#ifdef DEBUG
     printf("task_create: task %d criada.\n", task->tid);
-    #endif
+#endif
 
     /* Informações da fila. */
-    queue_append((queue_t**) &readyQueue, (queue_t*) task);
+    queue_append((queue_t**)&readyQueue, (queue_t*)task);
     task->queue = &readyQueue;
     task->estado = 'r';
     task->prio = DEFAULT_PRIO;
@@ -176,9 +176,9 @@ int task_create(task_t* task, void (*start_func)(void*), void* arg) {
 }
 
 void task_exit(int exitCode) {
-    #ifdef DEBUG
+#ifdef DEBUG
     printf("task_exit: encerrando task %d.\n", taskExec->tid);
-    #endif
+#endif
     freeTask = taskExec;
     freeTask->estado = 'x';
     freeTask->exitCode = exitCode;
@@ -190,7 +190,7 @@ void task_exit(int exitCode) {
 
     freeTask->execTime = systime() - freeTask->creationTime;
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", freeTask->tid, freeTask->execTime, freeTask->procTime, freeTask->activations);
-    
+
     if (taskExec == &taskDisp) {
         task_switch(&taskMain);
     }
@@ -209,11 +209,11 @@ int task_switch(task_t *task) {
 
     task->activations++;
     task->lastExecutionTime = systime();
-    
-    #ifdef DEBUG
+
+#ifdef DEBUG
     printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
-    #endif
-    
+#endif
+
     if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
         perror("Erro na troca de contexto: ");
         taskExec = prevTask;
@@ -235,15 +235,15 @@ void task_suspend(task_t *task, task_t **queue) {
 
     /* Se queue for nulo, não retira a tarefa da fila atual. */
     if (queue != NULL) {
-        if(task->queue != NULL) {
+        if (task->queue != NULL) {
             queue_remove((queue_t**)(task->queue), (queue_t*)task);
         }
         queue_append((queue_t**)queue, (queue_t*)task);
         task->queue = queue;
     }
-    #ifdef DEBUG
+#ifdef DEBUG
     printf("task_suspend: tarefa %d suspensa.\n", task->tid);
-    #endif
+#endif
 
     task->estado = 's';
 }
@@ -260,7 +260,7 @@ void task_resume(task_t *task) {
 }
 
 void task_yield() {
-    if(taskExec->estado != 's') {
+    if (taskExec->estado != 's') {
         /* Recoloca a task no final da fila de prontas */
         queue_append((queue_t**)&readyQueue, (queue_t*)taskExec);
         taskExec->queue = &readyQueue;
@@ -290,15 +290,15 @@ int task_getprio(task_t* task) {
 
 int task_join(task_t* task) {
     if (task == NULL) {
-        #ifdef DEBUG
+#ifdef DEBUG
         printf("task_join: erro: tarefa nula.\n");
-        #endif
+#endif
         return -1;
     }
     if (task->estado == 'x') {
-        #ifdef DEBUG
+#ifdef DEBUG
         printf("task_join: erro: a tarefa já foi encerrada.\n");
-        #endif
+#endif
         return task->exitCode;
     }
 
@@ -309,7 +309,7 @@ int task_join(task_t* task) {
 }
 
 void bodyDispatcher(void* arg) {
-    while (queue_size((queue_t*) readyQueue)) {
+    while (queue_size((queue_t*)readyQueue)) {
         task_t* next = scheduler();
 
         if (next != NULL) {
@@ -347,15 +347,15 @@ task_t* scheduler() {
         return NULL;
     }
 
-    #ifdef DEBUG
+#ifdef DEBUG
     printf("scheduler: buscando task com menor dynPrio.\n");
-    #endif
+#endif
 
     /* Busca a tarefa com menor dynPrio para executar. */
     do {
-        #ifdef DEBUG
+#ifdef DEBUG
         printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-        #endif
+#endif
 
         if (iterator->dynPrio < minDynPrio) {
             nextTask = iterator;
@@ -373,9 +373,9 @@ task_t* scheduler() {
         iterator = iterator->next;
     } while (iterator != readyQueue);
 
-    #ifdef DEBUG
+#ifdef DEBUG
     printf("scheduler: escolhida task %d, prio %d, dynPrio %d.\n", nextTask->tid, nextTask->prio, nextTask->dynPrio);
-    #endif
+#endif
 
     /* Retira a tarefa da fila e reseta sua prioridade dinamica. */
     nextTask->dynPrio = nextTask->prio;
@@ -386,9 +386,9 @@ task_t* scheduler() {
     if (iterator != NULL) {
         do {
             iterator->dynPrio -= ALPHA_PRIO;
-            #ifdef DEBUG
+#ifdef DEBUG
             printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-            #endif
+#endif
             iterator = iterator->next;
         } while (iterator != readyQueue);
     }
@@ -399,13 +399,13 @@ task_t* scheduler() {
 void tickHandler() {
     systemTime++;
 
-    if(taskExec != &taskDisp) {
+    if (taskExec != &taskDisp) {
         remainingTicks--;
-        
-        if(remainingTicks == 0) {
-            #ifdef DEBUG
+
+        if (remainingTicks == 0) {
+#ifdef DEBUG
             printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
-            #endif
+#endif
             task_yield();
         }
     }
