@@ -30,8 +30,8 @@ task_t* freeTask;
 /* Fila de tasks prontas */
 task_t* readyQueue;
 
-/* Fila de tasks suspensas */
-task_t* suspendedQueue;
+/* Fila de tasks dormindo */
+task_t* sleepQueue;
 
 /* ID da próxima task a ser criada */
 long nextid;
@@ -56,6 +56,9 @@ void pingpong_init() {
     /* Desativa o buffer de saída padrão */
     setvbuf(stdout, 0, _IONBF, 0);
 
+    readyQueue = NULL;
+    sleepQueue = NULL;
+
     /* INICIA A TASK MAIN */
     /* Referência a si mesmo */
     taskMain.main = &taskMain;
@@ -74,6 +77,8 @@ void pingpong_init() {
     taskMain.activations = 0;
 
     taskMain.joinQueue = NULL;
+
+    taskMain.awakeTime = NULL;
 
     /* Coloca a tarefa na fila */
     queue_append((queue_t**)&readyQueue, (queue_t*)&taskMain);
@@ -172,6 +177,8 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
     task->activations = 0;
 
     task->joinQueue = NULL;
+
+    task->awakeTime = 0;
 
     return (task->tid);
 }
@@ -313,7 +320,17 @@ int task_join(task_t* task) {
     return task->exitCode;
 }
 
+void task_sleep(int t) {
+    taskExec->awakeTime = systime() + t*1000; // systime() é em milissegundos.
+
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção (por garantia)
+    task_suspend(NULL, &sleepQueue);
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+}
+
 void bodyDispatcher(void* arg) {
+    task_t* iterator;
+
     while (queue_size((queue_t*)readyQueue)) {
         task_t* next = scheduler();
 
@@ -330,6 +347,17 @@ void bodyDispatcher(void* arg) {
             if (freeTask != NULL) {
                 free(freeTask->context.uc_stack.ss_sp);
                 freeTask = NULL;
+            }
+
+            /* Percorre a fila de tasks dormindo e acorda as tasks que devem ser acordadas. */
+            if (sleepQueue != NULL) {
+                iterator = sleepQueue;
+                do {
+                    if(iterator->awakeTime <= systime()) {
+                        task_resume(iterator);
+                    }
+                    iterator = iterator->next;
+                } while (iterator != sleepQueue);
             }
         }
     }

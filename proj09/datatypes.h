@@ -32,6 +32,8 @@ typedef struct task_t {
 	struct task_t* joinQueue;
 	int exitCode;
 
+    unsigned int awakeTime;
+
 	int tid;
 } task_t ;
 
