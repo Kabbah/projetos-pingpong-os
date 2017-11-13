@@ -321,44 +321,55 @@ int task_join(task_t* task) {
 }
 
 void task_sleep(int t) {
-    taskExec->awakeTime = systime() + t*1000; // systime() é em milissegundos.
+    if(t > 0) {
+        taskExec->awakeTime = systime() + t*1000; // systime() é em milissegundos.
 
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção (por garantia)
-    task_suspend(NULL, &sleepQueue);
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+        setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção (por garantia)
+        task_suspend(NULL, &sleepQueue);
+        setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+        
+        task_yield(); // Volta para o dispatcher.
+    }
 }
 
 void bodyDispatcher(void* arg) {
     task_t* iterator;
+    task_t* awake;
 
-    while (queue_size((queue_t*)readyQueue)) {
-        task_t* next = scheduler();
+    while (readyQueue != NULL || sleepQueue != NULL) {
+        if(readyQueue != NULL) {
+            task_t* next = scheduler();
 
-        if (next != NULL) {
-            /* Coloca a tarefa em execução */
-            /* Reseta as ticks */
-            remainingTicks = RESET_TICKS;
-            queue_remove((queue_t**)&readyQueue, (queue_t*)next);
-            next->queue = NULL;
-            next->estado = 'e';
-            task_switch(next);
+            if (next != NULL) {
+                /* Coloca a tarefa em execução */
+                /* Reseta as ticks */
+                remainingTicks = RESET_TICKS;
+                queue_remove((queue_t**)&readyQueue, (queue_t*)next);
+                next->queue = NULL;
+                next->estado = 'e';
+                task_switch(next);
 
-            /* Libera a memoria da task, caso ela tenha dado exit. */
-            if (freeTask != NULL) {
-                free(freeTask->context.uc_stack.ss_sp);
-                freeTask = NULL;
+                /* Libera a memoria da task, caso ela tenha dado exit. */
+                if (freeTask != NULL) {
+                    free(freeTask->context.uc_stack.ss_sp);
+                    freeTask = NULL;
+                }
             }
+        }
 
-            /* Percorre a fila de tasks dormindo e acorda as tasks que devem ser acordadas. */
-            if (sleepQueue != NULL) {
-                iterator = sleepQueue;
-                do {
-                    if(iterator->awakeTime <= systime()) {
-                        task_resume(iterator);
-                    }
+        /* Percorre a fila de tasks dormindo e acorda as tasks que devem ser acordadas. */
+        if (sleepQueue != NULL) {
+            iterator = sleepQueue;
+            do {
+                if(iterator->awakeTime <= systime()) {
+                    awake = iterator;
                     iterator = iterator->next;
-                } while (iterator != sleepQueue);
-            }
+                    task_resume(awake);
+                }
+                else {
+                    iterator = iterator->next;
+                }
+            } while (iterator != sleepQueue && sleepQueue != NULL);
         }
     }
     task_exit(0);
