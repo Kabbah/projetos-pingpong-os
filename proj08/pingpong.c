@@ -41,6 +41,7 @@ void tickHandler();
 short remainingTicks;
 struct sigaction action;
 struct itimerval timer;
+struct itimerval paraTimer = {0};
 
 /* Relógio do sistema */
 unsigned int systemTime;
@@ -304,7 +305,10 @@ int task_join(task_t* task) {
     }
 
     /* Se a tarefa existir e não tiver terminado */
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
     task_suspend(NULL, &(task->joinQueue));
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    
     task_yield();
     return task->exitCode;
 }
@@ -403,7 +407,7 @@ void tickHandler() {
     if (taskExec != &taskDisp) {
         remainingTicks--;
 
-        if (remainingTicks == 0) {
+        if (remainingTicks <= 0) {
 #ifdef DEBUG
             printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
 #endif
