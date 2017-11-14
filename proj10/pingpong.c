@@ -36,12 +36,17 @@ task_t* sleepQueue;
 /* ID da próxima task a ser criada */
 long nextid;
 
+/* Contagem de tasks de usuário criadas */
+long countTasks;
+
+/* Flag que indica se a preempcao por tempo esta ativa ou nao */
+unsigned char preempcao;
+
 /* Preempção por tempo */
 void tickHandler();
 short remainingTicks;
 struct sigaction action;
 struct itimerval timer;
-struct itimerval paraTimer = {0};
 
 /* Relógio do sistema */
 unsigned int systemTime;
@@ -75,6 +80,7 @@ void pingpong_init() {
     taskMain.execTime = 0;
     taskMain.procTime = 0;
     taskMain.activations = 0;
+    preempcao = 1;
 
     taskMain.joinQueue = NULL;
 
@@ -86,6 +92,9 @@ void pingpong_init() {
 
     /* O id da próxima task a ser criada é 1. */
     nextid = 1;
+    
+    /* A contagem de tasks de usuário inicia em 0. */
+    countTasks = 0;
 
     /* A task que está executando nesse momento é a main (que chamou pingpong_init). */
     taskExec = &taskMain;
@@ -157,6 +166,8 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
     /* Seta o id da task. */
     task->tid = nextid;
     nextid++;
+    
+    countTasks++;
 
 #ifdef DEBUG
     printf("task_create: task %d criada.\n", task->tid);
@@ -199,6 +210,8 @@ void task_exit(int exitCode) {
     freeTask->procTime += systime() - freeTask->lastExecutionTime;
     freeTask->execTime = systime() - freeTask->creationTime;
     printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", freeTask->tid, freeTask->execTime, freeTask->procTime, freeTask->activations);
+    
+    countTasks--;
 
     if (taskExec == &taskDisp) {
         task_switch(&taskMain);
@@ -312,9 +325,9 @@ int task_join(task_t* task) {
     }
 
     /* Se a tarefa existir e não tiver terminado */
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
     task_suspend(NULL, &(task->joinQueue));
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    preempcao = 1; // Retoma preempção
     
     task_yield();
     return task->exitCode;
@@ -324,9 +337,9 @@ void task_sleep(int t) {
     if(t > 0) {
         taskExec->awakeTime = systime() + t*1000; // systime() é em milissegundos.
 
-        setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção (por garantia)
+        preempcao = 0; // Impede preempção
         task_suspend(NULL, &sleepQueue);
-        setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+        preempcao = 1; // Retoma preempção
         
         task_yield(); // Volta para o dispatcher.
     }
@@ -336,7 +349,7 @@ void bodyDispatcher(void* arg) {
     task_t* iterator;
     task_t* awake;
 
-    while (readyQueue != NULL || sleepQueue != NULL) {
+    while (countTasks > 0) {
         if(readyQueue != NULL) {
             task_t* next = scheduler();
 
@@ -392,13 +405,13 @@ task_t* scheduler() {
     }
 
 #ifdef DEBUG
-    printf("scheduler: buscando task com menor dynPrio.\n");
+    //printf("scheduler: buscando task com menor dynPrio.\n");
 #endif
 
     /* Busca a tarefa com menor dynPrio para executar. */
     do {
 #ifdef DEBUG
-        printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
+        //printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
 #endif
 
         if (iterator->dynPrio < minDynPrio) {
@@ -431,7 +444,7 @@ task_t* scheduler() {
         do {
             iterator->dynPrio -= ALPHA_PRIO;
 #ifdef DEBUG
-            printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
+            //printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
 #endif
             iterator = iterator->next;
         } while (iterator != readyQueue);
@@ -446,7 +459,7 @@ void tickHandler() {
     if (taskExec != &taskDisp) {
         remainingTicks--;
 
-        if (remainingTicks <= 0) {
+        if (preempcao && remainingTicks <= 0) {
 #ifdef DEBUG
             printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
 #endif
@@ -460,22 +473,33 @@ unsigned int systime() {
 }
 
 int sem_create(semaphore_t* s, int value) {
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
 
     if (s == NULL) {
         return -1;
     }
 
     s->queue = NULL;
-    s->value = 0;
-    s->active = true;
+    s->value = value;
+    s->active = 1;
 
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+#ifdef DEBUG
+    printf("sem_create: criado semaforo com valor inicial %d.\n", value);
+#endif
+
+    preempcao = 1; // Retoma preempção
+    if(remainingTicks <= 0) {
+#ifdef DEBUG
+    printf("sem_create: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
+#endif
+        task_yield();
+    }
+
     return 0;
 }
 
 int sem_down(semaphore_t* s) {
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
 
     if (s == NULL || !(s->active)) {
         return -1;
@@ -483,9 +507,13 @@ int sem_down(semaphore_t* s) {
 
     s->value--;
     if (s->value < 0) {
+#ifdef DEBUG
+        printf("sem_down: semaforo cheio, suspendendo tarefa %d\n", taskExec->tid);
+#endif
         // Caso não existam mais vagas no semáforo, suspende a tarefa.
         task_suspend(taskExec, &(s->queue));
-        setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+
+        preempcao = 1; // Retoma preempção
         task_yield();
 
         // Se a tarefa foi acordada devido a um sem_destroy, retorna -1.
@@ -496,12 +524,21 @@ int sem_down(semaphore_t* s) {
         return 0;
     }
 
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+#ifdef DEBUG
+    printf("sem_down: semaforo obtido pela tarefa %d\n", taskExec->tid);
+#endif
+    preempcao = 1; // Retoma preempção
+    if(remainingTicks <= 0) {
+#ifdef DEBUG
+    printf("sem_down: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
+#endif
+        task_yield();
+    }
     return 0;
 }
 
 int sem_up(semaphore_t* s) {
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
 
     if (s == NULL || !(s->active)) {
         return -1;
@@ -512,22 +549,34 @@ int sem_up(semaphore_t* s) {
         task_resume(s->queue);
     }
 
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    preempcao = 1; // Retoma preempção
+    if(remainingTicks <= 0) {
+#ifdef DEBUG
+    printf("sem_up: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
+#endif
+        task_yield();
+    }
     return 0;
 }
 
 int sem_destroy(semaphore_t* s) {
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
 
     if (s == NULL || !(s->active)) {
         return -1;
     }
 
-    s->active = false;
+    s->active = 0;
     while (s->queue != NULL) {
         task_resume(s->queue);
     }
 
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    preempcao = 1; // Retoma preempção
+    if(remainingTicks <= 0) {
+#ifdef DEBUG
+    printf("sem_destroy: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
+#endif
+        task_yield();
+    }
     return 0;
 }
