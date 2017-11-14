@@ -41,6 +41,8 @@ typedef struct task_t {
 typedef struct {
     struct task_t* queue;
     int value;
+
+    unsigned char active;
 } semaphore_t ;
 
 // estrutura que define um mutex
