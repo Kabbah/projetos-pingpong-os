@@ -458,3 +458,76 @@ void tickHandler() {
 unsigned int systime() {
     return systemTime * TICK_MICROSECONDS / 1000;
 }
+
+int sem_create(semaphore_t* s, int value) {
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+
+    if (s == NULL) {
+        return -1;
+    }
+
+    s->queue = NULL;
+    s->value = 0;
+    s->active = true;
+
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    return 0;
+}
+
+int sem_down(semaphore_t* s) {
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+
+    if (s == NULL || !(s->active)) {
+        return -1;
+    }
+
+    s->value--;
+    if (s->value < 0) {
+        // Caso não existam mais vagas no semáforo, suspende a tarefa.
+        task_suspend(taskExec, &(s->queue));
+        setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+        task_yield();
+
+        // Se a tarefa foi acordada devido a um sem_destroy, retorna -1.
+        if (!(s->active)) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    return 0;
+}
+
+int sem_up(semaphore_t* s) {
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+
+    if (s == NULL || !(s->active)) {
+        return -1;
+    }
+
+    s->value++;
+    if (s->value <= 0) {
+        task_resume(s->queue);
+    }
+
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    return 0;
+}
+
+int sem_destroy(semaphore_t* s) {
+    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+
+    if (s == NULL || !(s->active)) {
+        return -1;
+    }
+
+    s->active = false;
+    while (s->queue != NULL) {
+        task_resume(s->queue);
+    }
+
+    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    return 0;
+}
