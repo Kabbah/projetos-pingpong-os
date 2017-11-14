@@ -84,7 +84,7 @@ void pingpong_init() {
 
     taskMain.joinQueue = NULL;
 
-    taskMain.awakeTime = NULL;
+    taskMain.awakeTime = 0;
 
     /* Coloca a tarefa na fila */
     queue_append((queue_t**)&readyQueue, (queue_t*)&taskMain);
