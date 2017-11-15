@@ -38,7 +38,7 @@ typedef struct task_t {
 } task_t ;
 
 // estrutura que define um semáforo
-typedef struct {
+typedef struct semaphore_t {
     struct task_t* queue;
     int value;
 
@@ -61,9 +61,17 @@ typedef struct {
 } barrier_t ;
 
 // estrutura que define uma fila de mensagens
-typedef struct
-{
-  // preencher quando necessário
+typedef struct {
+    void* content;
+    int messageSize;
+    int maxMessages;
+    int countMessages;
+    
+    struct semaphore_t sBuffer;
+    struct semaphore_t sItem;
+    struct semaphore_t sVaga;
+    
+    unsigned char active;
 } mqueue_t ;
 
 #endif

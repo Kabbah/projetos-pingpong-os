@@ -1,5 +1,5 @@
 TARGET = pingpong-mqueue
-LIBS = 
+LIBS = -lm
 CC = gcc
 CFLAGS = -Wall
 

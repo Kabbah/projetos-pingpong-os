@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/time.h>
 #include "pingpong.h"
 #include "queue.h"
@@ -636,5 +637,87 @@ int barrier_destroy(barrier_t* b) {
         task_yield();
     }
     return 0;
+}
+
+int mqueue_create(mqueue_t* queue, int max, int size) {
+    if(queue == NULL) {
+        return -1;
+    }
+    
+    preempcao = 0; // Impede preempção
+    
+    queue->content = malloc(max * size);
+    queue->messageSize = size;
+    queue->maxMessages = max;
+    queue->countMessages = 0;
+    
+    sem_create(&(queue->sBuffer), 1);
+    sem_create(&(queue->sItem), 0);
+    sem_create(&(queue->sVaga), max);
+    
+    queue->active = 1;
+    
+    preempcao = 1; // Retoma preempção
+    if(remainingTicks <= 0) {
+        task_yield();
+    }
+    return 0;
+}
+
+int mqueue_send(mqueue_t* queue, void* msg) {
+    if (queue == NULL || !(queue->active)) {
+        return -1;
+    }
+    
+    if (sem_down(&(queue->sVaga)) == -1) return -1;
+    if (sem_down(&(queue->sBuffer)) == -1) return -1;
+    
+    memcpy(queue->content + queue->countMessages * queue->messageSize, msg, queue->messageSize);
+    ++(queue->countMessages);
+        
+    sem_up(&(queue->sBuffer));
+    sem_up(&(queue->sItem));
+    
+    return 0;
+}
+
+int mqueue_recv(mqueue_t* queue, void* msg) {
+    if (queue == NULL || !(queue->active)) {
+        return -1;
+    }
+    
+    if (sem_down(&(queue->sItem)) == -1) return -1;
+    if (sem_down(&(queue->sBuffer)) == -1) return -1;
+    
+    --(queue->countMessages);
+    memcpy(msg, queue->content, queue->messageSize);
+    memcpy(queue->content, queue->content + queue->messageSize, queue->countMessages * queue->messageSize);
+    
+    sem_up(&(queue->sBuffer));
+    sem_up(&(queue->sVaga));
+    
+    return 0;
+}
+
+int mqueue_destroy(mqueue_t* queue) {
+    if (queue == NULL || !(queue->active)) {
+        return -1;
+    }
+    
+    queue->active = 0;
+    free(queue->content);
+    sem_destroy(&(queue->sBuffer));
+    sem_destroy(&(queue->sItem));
+    sem_destroy(&(queue->sVaga));
+    
+    return 0;
+}
+
+int mqueue_msgs(mqueue_t* queue) {
+    if (queue == NULL || !(queue->active)) {
+        return -1;
+    }
+
+    return queue->countMessages;
 }
 
