@@ -36,12 +36,14 @@ task_t* sleepQueue;
 /* ID da próxima task a ser criada */
 long nextid;
 
+/* Flag que indica se a preempcao por tempo esta ativa ou nao */
+unsigned char preempcao;
+
 /* Preempção por tempo */
 void tickHandler();
 short remainingTicks;
 struct sigaction action;
 struct itimerval timer;
-struct itimerval paraTimer = {0};
 
 /* Relógio do sistema */
 unsigned int systemTime;
@@ -75,10 +77,11 @@ void pingpong_init() {
     taskMain.execTime = 0;
     taskMain.procTime = 0;
     taskMain.activations = 0;
+    preempcao = 1;
 
     taskMain.joinQueue = NULL;
 
-    taskMain.awakeTime = NULL;
+    taskMain.awakeTime = 0;
 
     /* Coloca a tarefa na fila */
     queue_append((queue_t**)&readyQueue, (queue_t*)&taskMain);
@@ -312,9 +315,9 @@ int task_join(task_t* task) {
     }
 
     /* Se a tarefa existir e não tiver terminado */
-    setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção
+    preempcao = 0; // Impede preempção
     task_suspend(NULL, &(task->joinQueue));
-    setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+    preempcao = 1; // Retoma preempção
     
     task_yield();
     return task->exitCode;
@@ -324,9 +327,9 @@ void task_sleep(int t) {
     if(t > 0) {
         taskExec->awakeTime = systime() + t*1000; // systime() é em milissegundos.
 
-        setitimer(ITIMER_REAL, &paraTimer, NULL); // Impede preempção (por garantia)
+        preempcao = 0; // Impede preempção
         task_suspend(NULL, &sleepQueue);
-        setitimer(ITIMER_REAL, &timer, NULL); // Retoma preempção
+        preempcao = 1; // Retoma preempção
         
         task_yield(); // Volta para o dispatcher.
     }
@@ -446,7 +449,7 @@ void tickHandler() {
     if (taskExec != &taskDisp) {
         remainingTicks--;
 
-        if (remainingTicks <= 0) {
+        if (preempcao && remainingTicks <= 0) {
 #ifdef DEBUG
             printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
 #endif
