@@ -348,6 +348,7 @@ void task_sleep(int t) {
 void bodyDispatcher(void* arg) {
     task_t* iterator;
     task_t* awake;
+    unsigned int time;
 
     while (countTasks > 0) {
         if(readyQueue != NULL) {
@@ -373,8 +374,9 @@ void bodyDispatcher(void* arg) {
         /* Percorre a fila de tasks dormindo e acorda as tasks que devem ser acordadas. */
         if (sleepQueue != NULL) {
             iterator = sleepQueue;
+            time = systime();
             do {
-                if(iterator->awakeTime <= systime()) {
+                if(iterator->awakeTime <= time) {
                     awake = iterator;
                     iterator = iterator->next;
                     task_resume(awake);
