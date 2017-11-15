@@ -475,12 +475,11 @@ unsigned int systime() {
 }
 
 int sem_create(semaphore_t* s, int value) {
-    preempcao = 0; // Impede preempção
-
     if (s == NULL) {
         return -1;
     }
-
+    
+    preempcao = 0; // Impede preempção
     s->queue = NULL;
     s->value = value;
     s->active = 1;
@@ -491,9 +490,6 @@ int sem_create(semaphore_t* s, int value) {
 
     preempcao = 1; // Retoma preempção
     if(remainingTicks <= 0) {
-#ifdef DEBUG
-    printf("sem_create: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
-#endif
         task_yield();
     }
 
@@ -501,12 +497,11 @@ int sem_create(semaphore_t* s, int value) {
 }
 
 int sem_down(semaphore_t* s) {
-    preempcao = 0; // Impede preempção
-
     if (s == NULL || !(s->active)) {
         return -1;
     }
 
+    preempcao = 0; // Impede preempção
     s->value--;
     if (s->value < 0) {
 #ifdef DEBUG
@@ -523,6 +518,9 @@ int sem_down(semaphore_t* s) {
             return -1;
         }
 
+#ifdef DEBUG
+        printf("sem_down: semaforo obtido pela tarefa %d\n", taskExec->tid);
+#endif
         return 0;
     }
 
@@ -531,43 +529,38 @@ int sem_down(semaphore_t* s) {
 #endif
     preempcao = 1; // Retoma preempção
     if(remainingTicks <= 0) {
-#ifdef DEBUG
-    printf("sem_down: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
-#endif
         task_yield();
     }
     return 0;
 }
 
 int sem_up(semaphore_t* s) {
-    preempcao = 0; // Impede preempção
-
     if (s == NULL || !(s->active)) {
         return -1;
     }
-
+    
+    preempcao = 0; // Impede preempção
     s->value++;
     if (s->value <= 0) {
         task_resume(s->queue);
     }
-
     preempcao = 1; // Retoma preempção
-    if(remainingTicks <= 0) {
+
 #ifdef DEBUG
-    printf("sem_up: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
+    printf("sem_up: semaforo liberado pela tarefa %d\n", taskExec->tid);
 #endif
+    if(remainingTicks <= 0) {
         task_yield();
     }
     return 0;
 }
 
 int sem_destroy(semaphore_t* s) {
-    preempcao = 0; // Impede preempção
-
     if (s == NULL || !(s->active)) {
         return -1;
     }
-
+    
+    preempcao = 0; // Impede preempção
     s->active = 0;
     while (s->queue != NULL) {
         task_resume(s->queue);
@@ -575,10 +568,8 @@ int sem_destroy(semaphore_t* s) {
 
     preempcao = 1; // Retoma preempção
     if(remainingTicks <= 0) {
-#ifdef DEBUG
-    printf("sem_destroy: quantum da tarefa %d terminou dentro de uma operacao atomica.\n", taskExec->tid);
-#endif
         task_yield();
     }
     return 0;
 }
+

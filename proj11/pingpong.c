@@ -518,6 +518,9 @@ int sem_down(semaphore_t* s) {
             return -1;
         }
 
+#ifdef DEBUG
+        printf("sem_down: semaforo obtido pela tarefa %d\n", taskExec->tid);
+#endif
         return 0;
     }
 
@@ -543,6 +546,9 @@ int sem_up(semaphore_t* s) {
     }
     preempcao = 1; // Retoma preempção
 
+#ifdef DEBUG
+    printf("sem_up: semaforo liberado pela tarefa %d\n", taskExec->tid);
+#endif
     if(remainingTicks <= 0) {
         task_yield();
     }
@@ -598,6 +604,9 @@ int barrier_join(barrier_t* b) {
         }
         b->countTasks = 0;
         preempcao = 1; // Retoma preempção
+        if(remainingTicks <= 0) {
+            task_yield();
+        }
         return 0;
     }
 
