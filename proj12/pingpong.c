@@ -574,6 +574,93 @@ int sem_destroy(semaphore_t* s) {
     return 0;
 }
 
+int mutex_create(mutex_t* m) {
+    if (m == NULL) {
+        return -1;
+    }
+
+    preempcao = 0; // Impede preempção
+    m->queue = NULL;
+    m->value = 1;
+    m->active = 1;
+    preempcao = 1; // Retoma preempção
+
+    if (remainingTicks <= 0) {
+        task_yield();
+    }
+
+    return 0;
+}
+
+int mutex_lock(mutex_t* m) {
+    if (m == NULL || !(m->active)) {
+        return -1;
+    }
+
+    preempcao = 0; // Impede preempção
+
+    if (m->value == 0) { // Se já estiver travado, suspende a task
+        task_suspend(taskExec, &(m->queue));
+
+        preempcao = 1; // Retoma preempção
+        task_yield();
+
+        // Se a tarefa foi acordada devido a um mutex_destroy, retorna -1.
+        if (!(m->active)) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    m->value = 0; // Se não estiver travado, trava e obtém o mutex.
+
+    preempcao = 1; // Retoma preempção
+    if (remainingTicks <= 0) {
+        task_yield();
+    }
+    return 0;
+}
+
+int mutex_unlock(mutex_t* m) {
+    if (m == NULL || !(m->active)) {
+        return -1;
+    }
+
+    preempcao = 0; // Impede preempção
+
+    if (m->queue != NULL) { // Se alguma task estiver esperando na fila, mantém o mutex travado (para a próxima task) e acorda a primeira task da fila.
+        task_resume(m->queue);
+    }
+    else { // Se não tiver nenhuma task esperando, libera o mutex.
+        m->value = 1;
+    }
+
+    preempcao = 1; // Retoma preempção
+    if (remainingTicks <= 0) {
+        task_yield();
+    }
+    return 0;
+}
+
+int mutex_destroy(mutex_t* m) {
+    if (m == NULL || !(m->active)) {
+        return -1;
+    }
+
+    preempcao = 0; // Impede preempção
+    m->active = 0;
+    while (m->queue != NULL) {
+        task_resume(m->queue);
+    }
+
+    preempcao = 1; // Retoma preempção
+    if (remainingTicks <= 0) {
+        task_yield();
+    }
+    return 0;
+}
+
 int barrier_create(barrier_t* b, int N) {
     if (b == NULL || N <= 0) {
         return -1;
