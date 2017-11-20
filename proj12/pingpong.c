@@ -129,10 +129,6 @@ void pingpong_init() {
     task_create(&taskDisp, &bodyDispatcher, NULL);
     queue_remove((queue_t**)&readyQueue, (queue_t*)&taskDisp);
 
-#ifdef DEBUG
-    printf("PingPongOS iniciado.\n");
-#endif
-
     /* Ativa o dispatcher */
     task_yield();
 }
@@ -170,10 +166,6 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
     
     countTasks++;
 
-#ifdef DEBUG
-    printf("task_create: task %d criada.\n", task->tid);
-#endif
-
     /* Informações da fila. */
     queue_append((queue_t**)&readyQueue, (queue_t*)task);
     task->queue = &readyQueue;
@@ -196,9 +188,6 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
 }
 
 void task_exit(int exitCode) {
-#ifdef DEBUG
-    printf("task_exit: encerrando task %d.\n", taskExec->tid);
-#endif
     freeTask = taskExec;
     freeTask->estado = 'x';
     freeTask->exitCode = exitCode;
@@ -313,15 +302,9 @@ int task_getprio(task_t* task) {
 
 int task_join(task_t* task) {
     if (task == NULL) {
-#ifdef DEBUG
-        printf("task_join: erro: tarefa nula.\n");
-#endif
         return -1;
     }
     if (task->estado == 'x') {
-#ifdef DEBUG
-        printf("task_join: erro: a tarefa já foi encerrada.\n");
-#endif
         return task->exitCode;
     }
 
@@ -407,16 +390,8 @@ task_t* scheduler() {
         return NULL;
     }
 
-#ifdef DEBUG
-    //printf("scheduler: buscando task com menor dynPrio.\n");
-#endif
-
     /* Busca a tarefa com menor dynPrio para executar. */
     do {
-#ifdef DEBUG
-        //printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-#endif
-
         if (iterator->dynPrio < minDynPrio) {
             nextTask = iterator;
             minDynPrio = iterator->dynPrio;
@@ -433,10 +408,6 @@ task_t* scheduler() {
         iterator = iterator->next;
     } while (iterator != readyQueue);
 
-#ifdef DEBUG
-    printf("scheduler: escolhida task %d, prio %d, dynPrio %d.\n", nextTask->tid, nextTask->prio, nextTask->dynPrio);
-#endif
-
     /* Retira a tarefa da fila e reseta sua prioridade dinamica. */
     nextTask->dynPrio = nextTask->prio;
     nextTask->dynPrio += ALPHA_PRIO; /* Para não precisar verificar se cada outra task é a nextTask ou não. */
@@ -446,9 +417,6 @@ task_t* scheduler() {
     if (iterator != NULL) {
         do {
             iterator->dynPrio -= ALPHA_PRIO;
-#ifdef DEBUG
-            //printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-#endif
             iterator = iterator->next;
         } while (iterator != readyQueue);
     }
@@ -463,9 +431,6 @@ void tickHandler() {
         remainingTicks--;
 
         if (preempcao && remainingTicks <= 0) {
-#ifdef DEBUG
-            printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
-#endif
             task_yield();
         }
     }
@@ -752,6 +717,10 @@ int mqueue_create(mqueue_t* queue, int max, int size) {
 }
 
 int mqueue_send(mqueue_t* queue, void* msg) {
+#ifdef DEBUG
+    int i;
+#endif
+
     if (queue == NULL || !(queue->active)) {
         return -1;
     }
@@ -761,6 +730,14 @@ int mqueue_send(mqueue_t* queue, void* msg) {
     
     memcpy(queue->content + queue->countMessages * queue->messageSize, msg, queue->messageSize);
     ++(queue->countMessages);
+
+#ifdef DEBUG
+    printf("mqueue_send: ");
+    for (i = 0; i < queue->countMessages; i++) {
+        printf("%d ",((int*)(queue->content))[i]);
+    }
+    printf("\n");
+#endif
         
     sem_up(&(queue->sBuffer));
     sem_up(&(queue->sItem));
@@ -769,6 +746,10 @@ int mqueue_send(mqueue_t* queue, void* msg) {
 }
 
 int mqueue_recv(mqueue_t* queue, void* msg) {
+    int i;
+    void* destination;
+    void* source;
+
     if (queue == NULL || !(queue->active)) {
         return -1;
     }
@@ -776,9 +757,33 @@ int mqueue_recv(mqueue_t* queue, void* msg) {
     if (sem_down(&(queue->sItem)) == -1) return -1;
     if (sem_down(&(queue->sBuffer)) == -1) return -1;
     
+#ifdef DEBUG
+    printf("mqueue_recv: ");
+    for (i = 0; i < queue->countMessages; i++) {
+        printf("%d ",((int*)(queue->content))[i]);
+    }
+    printf("\n");
+#endif
+
     --(queue->countMessages);
     memcpy(msg, queue->content, queue->messageSize);
-    memcpy(queue->content, queue->content + queue->messageSize, queue->countMessages * queue->messageSize);
+    //memcpy(queue->content, queue->content + queue->messageSize, queue->countMessages * queue->messageSize);
+
+    source = queue->content + queue->messageSize;
+    destination = queue->content;
+    for (i = 0; i < queue->countMessages; i++) {
+        memcpy(destination, source, queue->messageSize);
+        source += queue->messageSize;
+        destination += queue->messageSize;
+    }
+
+#ifdef DEBUG
+    printf("mqueue_recv: ");
+    for (i = 0; i < queue->countMessages; i++) {
+        printf("%d ",((int*)(queue->content))[i]);
+    }
+    printf("\n");
+#endif
     
     sem_up(&(queue->sBuffer));
     sem_up(&(queue->sVaga));
