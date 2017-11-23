@@ -7,11 +7,32 @@
 #ifndef __DISKDRIVER__
 #define __DISKDRIVER__
 
+#define DISK_REQUEST_READ 1
+#define DISK_REQUEST_WRITE 0
+
 // structura de dados que representa o disco para o SO
-typedef struct
-{
-  // preencher com os campos necessarios
-} disk_t ;
+typedef struct {
+    int numBlocks;
+    int blockSize;
+
+    semaphore_t semaforo;
+
+    unsigned char sinal;
+    unsigned char livre;
+
+    task_t* diskQueue;
+    diskrequest_t* requestQueue;
+} disk_t;
+
+typedef struct diskrequest_t {
+    diskrequest_t* next;
+    diskrequest_t* prev;
+
+    task_t* task;
+    unsigned char operation; // DISK_REQUEST_READ ou DISK_REQUEST_WRITE
+    int block;
+    void* buffer;
+} diskrequest_t;
 
 // inicializacao do driver de disco
 // retorna -1 em erro ou 0 em sucesso
