@@ -792,7 +792,7 @@ int mqueue_recv(mqueue_t* queue, void* msg) {
     
     --(queue->countMessages);
     memcpy(msg, queue->content, queue->messageSize);
-    memcpy(queue->content, queue->content + queue->messageSize, queue->countMessages * queue->messageSize);
+    memmove(queue->content, queue->content + queue->messageSize, queue->countMessages * queue->messageSize);
     
     sem_up(&(queue->sBuffer));
     sem_up(&(queue->sVaga));
