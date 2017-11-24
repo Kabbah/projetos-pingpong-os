@@ -133,7 +133,6 @@ void pingpong_init() {
 
     /* INICIA A TASK DISK MANAGER */
     task_create(&taskDiskMgr, &bodyDiskManager, NULL);
-    queue_remove((queue_t**)&readyQueue, (queue_t*)&taskDiskMgr);
     --countTasks; // O disk manager não é uma task de usuário.
     diskAction.sa_handler = diskSignalHandler;
     sigemptyset(&diskAction.sa_mask);
@@ -142,10 +141,6 @@ void pingpong_init() {
         perror("Erro em sigaction: ");
         exit(1);
     }
-
-#ifdef DEBUG
-    printf("PingPongOS iniciado.\n");
-#endif
 
     /* Ativa o dispatcher */
     task_yield();
@@ -184,10 +179,6 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
     
     countTasks++;
 
-#ifdef DEBUG
-    printf("task_create: task %d criada.\n", task->tid);
-#endif
-
     /* Informações da fila. */
     queue_append((queue_t**)&readyQueue, (queue_t*)task);
     task->queue = &readyQueue;
@@ -210,9 +201,6 @@ int task_create(task_t* task, void(*start_func)(void*), void* arg) {
 }
 
 void task_exit(int exitCode) {
-#ifdef DEBUG
-    printf("task_exit: encerrando task %d.\n", taskExec->tid);
-#endif
     freeTask = taskExec;
     freeTask->estado = 'x';
     freeTask->exitCode = exitCode;
@@ -247,10 +235,6 @@ int task_switch(task_t *task) {
     task->activations++;
     task->lastExecutionTime = systime();
 
-#ifdef DEBUG
-    printf("task_switch: trocando task %d -> %d.\n", prevTask->tid, task->tid);
-#endif
-
     if (swapcontext(&(prevTask->context), &(task->context)) < 0) {
         perror("Erro na troca de contexto: ");
         taskExec = prevTask;
@@ -278,9 +262,6 @@ void task_suspend(task_t *task, task_t **queue) {
         queue_append((queue_t**)queue, (queue_t*)task);
         task->queue = queue;
     }
-#ifdef DEBUG
-    printf("task_suspend: tarefa %d suspensa.\n", task->tid);
-#endif
 
     task->estado = 's';
 }
@@ -327,15 +308,9 @@ int task_getprio(task_t* task) {
 
 int task_join(task_t* task) {
     if (task == NULL) {
-#ifdef DEBUG
-        printf("task_join: erro: tarefa nula.\n");
-#endif
         return -1;
     }
     if (task->estado == 'x') {
-#ifdef DEBUG
-        printf("task_join: erro: a tarefa já foi encerrada.\n");
-#endif
         return task->exitCode;
     }
 
@@ -421,16 +396,8 @@ task_t* scheduler() {
         return NULL;
     }
 
-#ifdef DEBUG
-    //printf("scheduler: buscando task com menor dynPrio.\n");
-#endif
-
     /* Busca a tarefa com menor dynPrio para executar. */
     do {
-#ifdef DEBUG
-        //printf("scheduler: task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-#endif
-
         if (iterator->dynPrio < minDynPrio) {
             nextTask = iterator;
             minDynPrio = iterator->dynPrio;
@@ -447,10 +414,6 @@ task_t* scheduler() {
         iterator = iterator->next;
     } while (iterator != readyQueue);
 
-#ifdef DEBUG
-    printf("scheduler: escolhida task %d, prio %d, dynPrio %d.\n", nextTask->tid, nextTask->prio, nextTask->dynPrio);
-#endif
-
     /* Retira a tarefa da fila e reseta sua prioridade dinamica. */
     nextTask->dynPrio = nextTask->prio;
     nextTask->dynPrio += ALPHA_PRIO; /* Para não precisar verificar se cada outra task é a nextTask ou não. */
@@ -460,9 +423,6 @@ task_t* scheduler() {
     if (iterator != NULL) {
         do {
             iterator->dynPrio -= ALPHA_PRIO;
-#ifdef DEBUG
-            //printf("scheduler: atualizando task %d, prio %d, dynPrio %d.\n", iterator->tid, iterator->prio, iterator->dynPrio);
-#endif
             iterator = iterator->next;
         } while (iterator != readyQueue);
     }
@@ -477,9 +437,6 @@ void tickHandler() {
         remainingTicks--;
 
         if (preempcao && remainingTicks <= 0) {
-#ifdef DEBUG
-            printf("tickHandler: final do quantum da tarefa %d.\n", taskExec->tid);
-#endif
             task_yield();
         }
     }
@@ -499,10 +456,6 @@ int sem_create(semaphore_t* s, int value) {
     s->value = value;
     s->active = 1;
 
-#ifdef DEBUG
-    printf("sem_create: criado semaforo com valor inicial %d.\n", value);
-#endif
-
     preempcao = 1; // Retoma preempção
     if(remainingTicks <= 0) {
         task_yield();
@@ -519,9 +472,6 @@ int sem_down(semaphore_t* s) {
     preempcao = 0; // Impede preempção
     s->value--;
     if (s->value < 0) {
-#ifdef DEBUG
-        printf("sem_down: semaforo cheio, suspendendo tarefa %d\n", taskExec->tid);
-#endif
         // Caso não existam mais vagas no semáforo, suspende a tarefa.
         task_suspend(taskExec, &(s->queue));
 
@@ -532,16 +482,10 @@ int sem_down(semaphore_t* s) {
         if (!(s->active)) {
             return -1;
         }
-
-#ifdef DEBUG
-        printf("sem_down: semaforo obtido pela tarefa %d\n", taskExec->tid);
-#endif
+        
         return 0;
     }
-
-#ifdef DEBUG
-    printf("sem_down: semaforo obtido pela tarefa %d\n", taskExec->tid);
-#endif
+    
     preempcao = 1; // Retoma preempção
     if(remainingTicks <= 0) {
         task_yield();
@@ -560,10 +504,7 @@ int sem_up(semaphore_t* s) {
         task_resume(s->queue);
     }
     preempcao = 1; // Retoma preempção
-
-#ifdef DEBUG
-    printf("sem_up: semaforo liberado pela tarefa %d\n", taskExec->tid);
-#endif
+    
     if(remainingTicks <= 0) {
         task_yield();
     }
@@ -822,7 +763,7 @@ int mqueue_msgs(mqueue_t* queue) {
     return queue->countMessages;
 }
 
-int disk_init(int* numBlocks, int* blockSize) {
+int diskdriver_init(int* numBlocks, int* blockSize) {
     int qtdBlocos;
     int tamBloco;
 
@@ -862,6 +803,8 @@ int disk_block_read(int block, void* buffer) {
     request->operation = DISK_REQUEST_READ;
     request->block = block;
     request->buffer = buffer;
+    request->next = NULL;
+    request->prev = NULL;
 
     queue_append((queue_t**)&(disco.requestQueue), (queue_t*)request);
 
@@ -891,6 +834,8 @@ int disk_block_write(int block, void* buffer) {
     request->operation = DISK_REQUEST_WRITE;
     request->block = block;
     request->buffer = buffer;
+    request->next = NULL;
+    request->prev = NULL;
 
     queue_append((queue_t**)&(disco.requestQueue), (queue_t*)request);
 
@@ -915,12 +860,13 @@ void bodyDiskManager(void* arg) {
         sem_down(&(disco.semaforo));
         
         if (disco.sinal) {
+            disco.sinal = 0;
             task_resume(disco.diskQueue);
             disco.livre = 1;
         }
 
         if (disco.livre && disco.requestQueue != NULL) {
-            request = queue_remove((queue_t**)&(disco.requestQueue), (queue_t*)disco.requestQueue);
+            request = (diskrequest_t*) queue_remove((queue_t**)&(disco.requestQueue), (queue_t*)disco.requestQueue);
             if (request->operation == DISK_REQUEST_READ) {
                 disk_cmd(DISK_CMD_READ, request->block, request->buffer);
                 disco.livre = 0;
@@ -933,13 +879,14 @@ void bodyDiskManager(void* arg) {
         }
 
         sem_up(&(disco.semaforo));
-
-        task_suspend(&taskDiskMgr, &suspendedQueue);
+        
         task_yield();
     }
 }
 
 void diskSignalHandler() {
+#ifdef DEBUG
+    printf("Sinal de disco recebido.\n");
+#endif
     disco.sinal = 1;
-    task_resume(&taskDiskMgr);
 }
